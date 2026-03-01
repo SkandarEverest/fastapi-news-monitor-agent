@@ -1,0 +1,18 @@
+[project]
+name = "news-monitor-agent"
+version = "0.1.0"
+description = "Agentic News Monitoring with FastAPI + Celery + Tavily"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "celery>=5.3",
+  "fastapi>=0.110",
+  "markdown>=3.5",
+  "openai>=1.0",
+  "python-dotenv>=1.0",
+  "redis>=5.0",
+  "scalar-fastapi>=1.0",
+  "tavily-python>=0.3",
+  "uvicorn>=0.20",
+  "weasyprint>=60.0",
+]
