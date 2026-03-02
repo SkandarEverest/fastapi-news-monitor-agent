@@ -8,6 +8,11 @@ from app.utils.tavily_client import get_tavily_client
 from .prompt import PLANNER_PROMPT, ARTICLE_SUMMARY_PROMPT, DIGEST_PROMPT
 
 from urllib.parse import urlparse
+from datetime import datetime, timezone
+
+def _dedup_key(url: str, title: str) -> str:
+    raw = (url.strip() + "|" + title.strip()).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
 
 def domain(url: str) -> str:
     try:
@@ -15,14 +20,10 @@ def domain(url: str) -> str:
     except Exception:
         return "Unknown"
 
-def _dedup_key(url: str, title: str) -> str:
-    raw = (url.strip() + "|" + title.strip()).encode("utf-8")
-    return hashlib.sha256(raw).hexdigest()
-
 def plan_queries(topic: str, keywords: list[str], window_hours: int) -> list[str]:
     client = get_openai_client()
     resp = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=os.getenv("OPENAI_MODEL", "openai/gpt-4o-mini"),
         messages=[
             {"role": "system", "content": "Return only valid JSON. No markdown."},
             {"role": "user", "content": PLANNER_PROMPT.format(topic=topic, keywords=keywords, window_hours=window_hours)},
@@ -43,14 +44,10 @@ def extract_articles(search_payload: dict[str, Any]) -> list[dict[str, Any]]:
     results = search_payload.get("results") or []
     articles: list[dict[str, Any]] = []
     for r in results:
-        # Tavily may return very long text. Keep only compact fields.
         content = (r.get("content") or "")
         raw_content = (r.get("raw_content") or "")
 
-        # Prefer 'content' (usually shorter). If empty, fall back to raw_content.
         text = content if content else raw_content
-
-        # Hard cap to avoid context explosion (characters, not tokens, but good enough)
         text = text[:6000]
 
         articles.append(
@@ -59,7 +56,7 @@ def extract_articles(search_payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "url": r.get("url"),
                 "published_date": r.get("published_date"),
                 "score": r.get("score"),
-                "text": text,  # <-- store compact text only
+                "text": text,
             }
         )
     return articles
@@ -95,12 +92,9 @@ def summarize_article(article: dict[str, Any]) -> str:
             {"role": "system", "content": "Be concise. Use bullet points only."},
             {"role": "user", "content": ARTICLE_SUMMARY_PROMPT.format(article_json=json.dumps(payload))},
         ],
-        # optional but helpful to keep responses short and stable
         max_tokens=250,
     )
     return resp.choices[0].message.content or ""
-
-from datetime import datetime, timezone
 
 def synthesize_digest(topic: str, window_hours: int, summaries: list[dict[str, Any]]) -> str:
     client = get_openai_client()

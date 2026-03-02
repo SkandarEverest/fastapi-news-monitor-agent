@@ -28,7 +28,6 @@ def run_monitoring(payload: dict) -> dict:
     window_hours: int = int(payload.get("window_hours") or 24)
     max_articles: int = int(payload.get("max_articles") or 12)
 
-    # Create output directory for generated files (JSON/MD/PDF)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     # =========================
@@ -46,10 +45,7 @@ def run_monitoring(payload: dict) -> dict:
         # Add a simple recency hint to bias results toward recent content
         q2 = f"{q} last {window_hours} hours"
 
-        # Call Tavily search API
         search_payload = tavily_search(q2)
-
-        # Extract relevant fields from Tavily response into a normalized article list
         all_articles.extend(extract_articles(search_payload))
 
     # =========================
@@ -93,7 +89,6 @@ def run_monitoring(payload: dict) -> dict:
     md_path = os.path.join(OUTPUT_DIR, f"{base}.md")
     pdf_path = os.path.join(OUTPUT_DIR, f"{base}.pdf")
 
-    # Save structured result for downstream usage
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(
             {"topic": topic, "summaries": summarized, "digest_md": digest_md},
@@ -102,15 +97,12 @@ def run_monitoring(payload: dict) -> dict:
             indent=2,
         )
 
-    # Save markdown digest for easy reading/editing
     with open(md_path, "w", encoding="utf-8") as f:
         f.write(digest_md)
 
-    # Convert markdown -> HTML -> PDF for a polished deliverable
     html = markdown(digest_md, output_format="html")
     HTML(string=html).write_pdf(pdf_path)
 
-    # Return paths so API can show where artifacts were written
     return {
         "topic": topic,
         "queries": queries,
@@ -123,5 +115,4 @@ def run_monitoring(payload: dict) -> dict:
 
 @celery_app.task(name="monitor_news_task")
 def monitor_news_task(payload: dict):
-    # Celery entrypoint: run the agentic workflow in background
     return run_monitoring(payload)

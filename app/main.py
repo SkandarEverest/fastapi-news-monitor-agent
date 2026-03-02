@@ -12,7 +12,7 @@ app = FastAPI(title="News Monitoring Agent")
 
 @app.post("/monitor")
 def start_monitoring(body: MonitorInput):
-    task = monitor_news_task.delay(body.model_dump())  # type: ignore
+    task = monitor_news_task.delay(body.model_dump())
     return {"task_id": task.id, "message": "Processing!"}
 
 @app.get("/monitor/{task_id}/status")
